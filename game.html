@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect Four</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-image: url('https://www.example.com/background.jpg'); /* Add a background image */
+            background-size: cover;
+            background-attachment: fixed;
+            color: white;
+        }
+
+        h1 {
+            margin: 20px;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        #gameContainer {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        .playerContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 20px;
+        }
+
+        .playerLogo {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .timer {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+
+        .chatBox {
+            width: 200px;
+            height: 200px;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            overflow-y: auto;
+            background-color: rgba(255, 255, 255, 0.8); /* Light background for readability */
+            padding: 10px;
+            border-radius: 10px;
+            color: black;
+        }
+
+        .chatInput {
+            margin-top: 10px;
+            width: 180px;
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(7, 50px);
+            grid-template-rows: repeat(6, 50px);
+            gap: 5px;
+            background-color: #444;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            background-color: #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        .cell:hover {
+            transform: scale(1.1);
+        }
+
+        .cell.red {
+            background-color: red;
+        }
+
+        .cell.yellow {
+            background-color: yellow;
+        }
+
+        #resetButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        #resetButton:hover {
+            background-color: #666;
+        }
+
+        .winner {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+            animation: highlight 1s infinite;
+        }
+
+        @keyframes highlight {
+            0% { color: yellow; }
+            50% { color: red; }
+            100% { color: yellow; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Connect Four Game</h1>
+    <div id="gameContainer">
+        <div class="playerContainer" id="player1">
+            <img src="https://via.placeholder.com/50/FF0000/FFFFFF?text=P1" alt="Player 1 Logo" class="playerLogo">
+            <div class="timer" id="timer1">30</div>
+            <div class="chatBox" id="chatBox1"></div>
+            <input type="text" class="chatInput" id="chatInput1">
+        </div>
+        <div id="board"></div>
+        <div class="playerContainer" id="player2">
+            <img src="https://via.placeholder.com/50/FFFF00/000000?text=P2" alt="Player 2 Logo" class="playerLogo">
+            <div class="timer" id="timer2">30</div>
+            <div class="chatBox" id="chatBox2"></div>
+            <input type="text" class="chatInput" id="chatInput2">
+        </div>
+    </div>
+    <button id="resetButton">Reset Game</button>
+    <div class="winner" id="winnerMessage"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rows = 6;
+            const cols = 7;
+            const board = document.getElementById('board');
+            const resetButton = document.getElementById('resetButton');
+            const chatInput1 = document.getElementById('chatInput1');
+            const chatInput2 = document.getElementById('chatInput2');
+            const chatBox1 = document.getElementById('chatBox1');
+            const chatBox2 = document.getElementById('chatBox2');
+            const timer1 = document.getElementById('timer1');
+            const timer2 = document.getElementById('timer2');
+            const winnerMessage = document.getElementById('winnerMessage');
+            let currentPlayer = 'red';
+            let gameBoard = [];
+            let timerInterval;
+            let timeLeft = 30;
+
+            function createBoard() {
+                gameBoard = [];
+                board.innerHTML = '';
+                for (let row = 0; row < rows; row++) {
+                    const rowArray = [];
+                    for (let col = 0; col < cols; col++) {
+                        const cell = document.createElement('div');
+                        cell.classList.add('cell');
+                        cell.dataset.row = row;
+                        cell.dataset.col = col;
+                        cell.addEventListener('click', handleCellClick);
+                        board.appendChild(cell);
+                        rowArray.push('');
+                    }
+                    gameBoard.push(rowArray);
+                }
+            }
+
+            function handleCellClick(event) {
+                const cell = event.target;
+                const col = cell.dataset.col;
+                for (let row = rows - 1; row >= 0; row--) {
+                    if (!gameBoard[row][col]) {
+                        gameBoard[row][col] = currentPlayer;
+                        const cellToFill = document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
+                        cellToFill.classList.add(currentPlayer);
+                        if (checkBoardFull()) {
+                            stopTimer();
+                            setTimeout(() => {
+                                calculateCounts();
+                            }, 100);
+                        } else {
+                            switchPlayer();
+                        }
+                        break;
+                    }
+                }
+            }
+
+            function stopTimer() {
+                clearInterval(timerInterval);
+                timerInterval = null; // Ensure timer interval is cleared
+            }
+
+            function switchPlayer() {
+                currentPlayer = currentPlayer === 'red' ? 'yellow' : 'red';
+                resetTimer();
+            }
+
+            function resetTimer() {
+                clearInterval(timerInterval);
+                timeLeft = 30;
+                updateTimer();
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimer();
+                    if (timeLeft === 0) {
+                        alert(`${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} ran out of time!`);
+                        switchPlayer();
+                    }
+                }, 1000);
+            }
+
+            function updateTimer() {
+                if (currentPlayer === 'red') {
+                    timer1.textContent = timeLeft;
+                    timer2.textContent = '';
+                } else {
+                    timer2.textContent = timeLeft;
+                    timer1.textContent = '';
+                }
+            }
+
+            function checkBoardFull() {
+                return gameBoard[0].every(cell => cell !== '');
+            }
+
+            function checkWin(row, col) {
+                return checkDirection(row, col, 1, 0) || // horizontal
+                       checkDirection(row, col, 0, 1) || // vertical
+                       checkDirection(row, col, 1, 1) || // diagonal /
+                       checkDirection(row, col, 1, -1);  // diagonal \
+            }
+
+            function checkDirection(row, col, rowDir, colDir) {
+                let count = 0;
+                for (let i = -3; i <= 3; i++) {
+                    const r = row + i * rowDir;
+                    const c = col + i * colDir;
+                    if (r >= 0 && r < rows && c >= 0 && c < cols && gameBoard[r][c] === currentPlayer) {
+                        count++;
+                        if (count === 4) return true;
+                    } else {
+                        count = 0;
+                    }
+                }
+                return false;
+            }
+
+            function calculateCounts() {
+                let redCount = 0;
+                let yellowCount = 0;
+
+                // Check horizontally
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols - 3; col++) {
+                        const color = gameBoard[row][col];
+                        if (color && color === gameBoard[row][col + 1] && color === gameBoard[row][col + 2] && color === gameBoard[row][col + 3]) {
+                            if (color === 'red') redCount++;
+                            if (color === 'yellow') yellowCount++;
+                        }
+                    }
+                }
+
+                // Check vertically
+                for (let col = 0; col < cols; col++) {
+                    for (let row = 0; row < rows - 3; row++) {
+                        const color = gameBoard[row][col];
+                        if (color && color === gameBoard[row + 1][col] && color === gameBoard[row + 2][col] && color === gameBoard[row + 3][col]) {
+                            if (color === 'red') redCount++;
+                            if (color === 'yellow') yellowCount++;
+                        }
+                    }
+                }
+
+                // Check diagonally (bottom-right)
+                for (let row = 0; row < rows - 3; row++) {
+                    for (let col = 0; col < cols - 3; col++) {
+                        const color = gameBoard[row][col];
+                        if (color && color === gameBoard[row + 1][col + 1] && color === gameBoard[row + 2][col + 2] && color === gameBoard[row + 3][col + 3]) {
+                            if (color === 'red') redCount++;
+                            if (color === 'yellow') yellowCount++;
+                        }
+                    }
+                }
+
+                // Check diagonally (bottom-left)
+                for (let row = 0; row < rows - 3; row++) {
+                    for (let col = 3; col < cols; col++) {
+                        const color = gameBoard[row][col];
+                        if (color && color === gameBoard[row + 1][col - 1] && color === gameBoard[row + 2][col - 2] && color === gameBoard[row + 3][col - 3]) {
+                            if (color === 'red') redCount++;
+                            if (color === 'yellow') yellowCount++;
+                        }
+                    }
+                }
+
+                announceWinner(redCount, yellowCount);
+            }
+
+            function announceWinner(redCount, yellowCount) {
+                let winnerText = '';
+                if (redCount > yellowCount) {
+                    winnerText = 'Player 1 (Red) wins with the most connections!';
+                } else if (yellowCount > redCount) {
+                    winnerText = 'Player 2 (Yellow) wins with the most connections!';
+                } else {
+                    winnerText = 'It\'s a tie!';
+                }
+                winnerMessage.textContent = winnerText;
+                winnerMessage.style.color = 'yellow'; // Highlight text color
+                winnerMessage.style.animation = 'highlight 1s infinite'; // Add animation
+            }
+
+            function resetGame() {
+                createBoard();
+                currentPlayer = 'red';
+                resetTimer();
+                chatBox1.innerHTML = '';
+                chatBox2.innerHTML = '';
+                winnerMessage.textContent = ''; // Clear winner message
+                winnerMessage.style.animation = ''; // Remove animation
+            }
+
+            chatInput1.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' && chatInput1.value.trim()) {
+                    const message = document.createElement('p');
+                    message.textContent = chatInput1.value;
+                    chatBox2.appendChild(message);
+                    chatInput1.value = '';
+                }
+            });
+
+            chatInput2.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' && chatInput2.value.trim()) {
+                    const message = document.createElement('p');
+                    message.textContent = chatInput2.value;
+                    chatBox1.appendChild(message);
+                    chatInput2.value = '';
+                }
+            });
+
+            resetButton.addEventListener('click', resetGame);
+
+            createBoard();
+            resetTimer();
+        });
+    </script>
+</body>
+</html>
